@@ -1,6 +1,6 @@
 module github.com/getlantern/publicip
 
-go 1.26.1
+go 1.22
 
 require github.com/huin/goupnp v1.3.0
 
