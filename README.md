@@ -45,16 +45,16 @@ This library was built for [Lantern](https://lantern.io), a censorship circumven
 
 The default method set avoids services known to be blocked in major censored regions:
 
-| Method | Service | China | Iran | Russia | Protocol |
-|--------|---------|:-----:|:----:|:------:|----------|
-| STUN | `stun.cloudflare.com` | ✅ | ✅ | ⚠️ | UDP 3478 |
-| STUN | `stun.nextcloud.com` | ✅ | ✅ | ✅ | UDP 3478 |
-| HTTP | `icanhazip.com` | ✅ | ⚠️ | ⚠️ | HTTPS |
-| HTTP | `ipinfo.io` | ✅ | ❓ | ❓ | HTTPS |
-| HTTP | `checkip.amazonaws.com` | ✅ | ❌ | ✅ | HTTPS |
-| DNS | `whoami.akamai.net` | ✅ | ✅ | ✅ | UDP 53 |
-| DNS | `myip.opendns.com` | ✅ | ❌ | ✅ | UDP 53 |
-| UPnP | Local gateway | ✅ | ✅ | ✅ | LAN |
+Method | Service | China | Iran | Russia | Protocol
+-------|---------|:-----:|:----:|:------:|---------
+STUN | `stun.cloudflare.com` | ✅ | ✅ | ⚠️ | UDP 3478
+STUN | `stun.nextcloud.com` | ✅ | ✅ | ✅ | UDP 3478
+HTTP | `icanhazip.com` | ✅ | ⚠️ | ⚠️ | HTTPS
+HTTP | `ipinfo.io` | ✅ | ❓ | ❓ | HTTPS
+HTTP | `checkip.amazonaws.com` | ✅ | ❌ | ✅ | HTTPS
+DNS | `whoami.akamai.net` | ✅ | ✅ | ✅ | UDP 53
+DNS | `myip.opendns.com` | ✅ | ❌ | ✅ | UDP 53
+UPnP | Local gateway | ✅ | ✅ | ✅ | LAN
 
 **No Google services** are used by default — Google STUN and DNS are blocked in China.
 

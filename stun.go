@@ -39,7 +39,17 @@ func (s *stunMethod) Detect(ctx context.Context) (net.IP, *GeoInfo, error) {
 	}
 	defer conn.Close()
 
-	// Build STUN Binding Request (RFC 5389 Section 6)
+	// Close the connection when context is cancelled so Read unblocks
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
+
+	// Set read deadline from context so UDP reads don't hang forever
+	if deadline, ok := ctx.Deadline(); ok {
+		conn.SetDeadline(deadline)
+	}
+
 	// Use math/rand for txID — not security-sensitive, avoids slow crypto/rand on Android
 	var txID [12]byte
 	binary.LittleEndian.PutUint64(txID[0:8], rand.Uint64())
@@ -55,7 +65,7 @@ func (s *stunMethod) Detect(ctx context.Context) (net.IP, *GeoInfo, error) {
 		return nil, nil, fmt.Errorf("write: %w", err)
 	}
 
-	var buf [128]byte // STUN binding responses are small (~48 bytes)
+	var buf [128]byte
 	n, err := conn.Read(buf[:])
 	if err != nil {
 		return nil, nil, fmt.Errorf("read: %w", err)

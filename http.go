@@ -15,6 +15,7 @@ import (
 // short TLS handshake timeout, small response limit.
 var httpClient = &http.Client{
 	Transport: &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
 		DisableKeepAlives:   true,
 		TLSHandshakeTimeout: 4 * time.Second,
 		MaxIdleConns:        0,
