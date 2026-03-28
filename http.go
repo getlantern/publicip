@@ -8,7 +8,19 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
+
+// Shared HTTP client — no keep-alive (saves sockets on Android),
+// short TLS handshake timeout, small response limit.
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		DisableKeepAlives:   true,
+		TLSHandshakeTimeout: 4 * time.Second,
+		MaxIdleConns:        0,
+	},
+}
 
 // ResponseFormat specifies how to parse the HTTP response.
 type ResponseFormat int
@@ -39,7 +51,7 @@ func (h *httpMethod) Detect(ctx context.Context) (net.IP, *GeoInfo, error) {
 	}
 	req.Header.Set("User-Agent", "publicip/1.0")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("http %s: %w", h.url, err)
 	}
