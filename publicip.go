@@ -119,11 +119,9 @@ func Detect(ctx context.Context, cfg *Config) (*DetectResult, error) {
 
 	select {
 	case <-done:
-		// Early consensus reached
+		cancel() // Stop remaining methods to save resources
 	case <-allDone:
-		// All methods finished
 	case <-ctx.Done():
-		// Timeout
 	}
 
 	mu.Lock()

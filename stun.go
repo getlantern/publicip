@@ -2,9 +2,9 @@ package publicip
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"math/rand/v2"
 	"net"
 )
 
@@ -40,23 +40,23 @@ func (s *stunMethod) Detect(ctx context.Context) (net.IP, *GeoInfo, error) {
 	defer conn.Close()
 
 	// Build STUN Binding Request (RFC 5389 Section 6)
+	// Use math/rand for txID — not security-sensitive, avoids slow crypto/rand on Android
 	var txID [12]byte
-	if _, err := rand.Read(txID[:]); err != nil {
-		return nil, nil, err
-	}
+	binary.LittleEndian.PutUint64(txID[0:8], rand.Uint64())
+	binary.LittleEndian.PutUint32(txID[8:12], rand.Uint32())
 
-	req := make([]byte, stunHeaderSize)
-	binary.BigEndian.PutUint16(req[0:2], stunBindingRequest) // Message Type
-	binary.BigEndian.PutUint16(req[2:4], 0)                  // Message Length (no attrs)
-	binary.BigEndian.PutUint32(req[4:8], stunMagicCookie)    // Magic Cookie
-	copy(req[8:20], txID[:])                                  // Transaction ID
+	var req [stunHeaderSize]byte
+	binary.BigEndian.PutUint16(req[0:2], stunBindingRequest)
+	binary.BigEndian.PutUint16(req[2:4], 0)
+	binary.BigEndian.PutUint32(req[4:8], stunMagicCookie)
+	copy(req[8:20], txID[:])
 
-	if _, err := conn.Write(req); err != nil {
+	if _, err := conn.Write(req[:]); err != nil {
 		return nil, nil, fmt.Errorf("write: %w", err)
 	}
 
-	buf := make([]byte, 512)
-	n, err := conn.Read(buf)
+	var buf [128]byte // STUN binding responses are small (~48 bytes)
+	n, err := conn.Read(buf[:])
 	if err != nil {
 		return nil, nil, fmt.Errorf("read: %w", err)
 	}
@@ -110,22 +110,18 @@ func parseXORMappedAddress(val []byte, txID [12]byte) net.IP {
 		if len(val) < 8 {
 			return nil
 		}
-		ip := make(net.IP, 4)
-		// XOR port and address with magic cookie
-		magic := make([]byte, 4)
-		binary.BigEndian.PutUint32(magic, stunMagicCookie)
-		for i := 0; i < 4; i++ {
-			ip[i] = val[4+i] ^ magic[i]
-		}
+		var magic [4]byte
+		binary.BigEndian.PutUint32(magic[:], stunMagicCookie)
+		ip := net.IP{val[4] ^ magic[0], val[5] ^ magic[1], val[6] ^ magic[2], val[7] ^ magic[3]}
 		return ip
 	case 0x02: // IPv6
 		if len(val) < 20 {
 			return nil
 		}
+		var xorKey [16]byte
+		binary.BigEndian.PutUint32(xorKey[:4], stunMagicCookie)
+		copy(xorKey[4:], txID[:])
 		ip := make(net.IP, 16)
-		magic := make([]byte, 4)
-		binary.BigEndian.PutUint32(magic, stunMagicCookie)
-		xorKey := append(magic, txID[:]...)
 		for i := 0; i < 16; i++ {
 			ip[i] = val[4+i] ^ xorKey[i]
 		}
