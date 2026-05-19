@@ -53,14 +53,22 @@ func NewHTTP(url string, format ResponseFormat) Method {
 
 // NewHTTPWithClient creates an HTTP-based IP detection method that uses
 // the supplied *http.Client for the request. Intended for callers that
-// want the detection to ride a non-default transport (e.g. radiance's
-// kindling-fronted client) so the request survives endpoint blocking
-// without changing which IP gets reported — the CDN/proxy doesn't
-// rewrite the source IP, so the response is still the user's real IP.
+// want detection to ride a non-default transport — for example,
+// radiance's kindling-fronted client routes through a CDN so the
+// request survives endpoint blocking. Whether the response IP equals
+// the user's real IP depends on the supplied transport: CDN-fronting
+// preserves it (the CDN forwards the original connection), while
+// transports that egress from a different host (HTTP proxies, VPNs,
+// SOCKS) will report the egress IP instead. The caller chooses
+// transport, the caller owns the IP semantics.
 //
 // label distinguishes this method from a direct one targeting the same
-// URL in consensus output (e.g. "fronted").
+// URL in consensus output (e.g. "fronted"). label is ignored when
+// client is nil so Name() doesn't lie about which transport ran.
 func NewHTTPWithClient(url string, format ResponseFormat, client *http.Client, label string) Method {
+	if client == nil {
+		label = ""
+	}
 	return &httpMethod{url: url, format: format, client: client, label: label}
 }
 

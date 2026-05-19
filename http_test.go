@@ -43,6 +43,14 @@ func TestHTTPMethod_DefaultClientWhenNil(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
+	pkgCalls := 0
+	originalTransport := httpClient.Transport
+	httpClient.Transport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		pkgCalls++
+		return originalTransport.RoundTrip(r)
+	})
+	t.Cleanup(func() { httpClient.Transport = originalTransport })
+
 	m := NewHTTP(srv.URL, FormatPlainText)
 	ip, _, err := m.Detect(context.Background())
 	if err != nil {
@@ -51,8 +59,18 @@ func TestHTTPMethod_DefaultClientWhenNil(t *testing.T) {
 	if ip.String() != "198.51.100.7" {
 		t.Errorf("ip = %s; want 198.51.100.7", ip)
 	}
+	if pkgCalls != 1 {
+		t.Errorf("package httpClient called %d times; want 1 (fallback path not exercised)", pkgCalls)
+	}
 	if name := m.Name(); name != "http:"+srv.URL {
 		t.Errorf("Name = %q; want unlabelled form", name)
+	}
+}
+
+func TestHTTPMethod_NilClientWithLabelDropsLabel(t *testing.T) {
+	m := NewHTTPWithClient("https://example.com", FormatPlainText, nil, "fronted")
+	if name := m.Name(); name != "http:https://example.com" {
+		t.Errorf("Name = %q; want unlabelled form when client is nil", name)
 	}
 }
 
