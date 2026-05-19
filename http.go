@@ -33,14 +33,49 @@ const (
 type httpMethod struct {
 	url    string
 	format ResponseFormat
+	// client overrides the package-default httpClient. nil = use the
+	// shared direct client. Set via NewHTTPWithClient when the caller
+	// wants to route detection through a domain-fronted (or otherwise
+	// custom) transport to survive endpoint-level blocking.
+	client *http.Client
+	// label is appended to Name() so multiple methods using the same
+	// URL through different clients show distinct sources in
+	// consensus results.
+	label string
 }
 
-// NewHTTP creates an HTTP-based IP detection method.
+// NewHTTP creates an HTTP-based IP detection method using the package's
+// direct HTTP client. Suitable for unrestricted networks where the
+// detection endpoint is directly reachable.
 func NewHTTP(url string, format ResponseFormat) Method {
 	return &httpMethod{url: url, format: format}
 }
 
+// NewHTTPWithClient creates an HTTP-based IP detection method that uses
+// the supplied *http.Client for the request. Intended for callers that
+// want detection to ride a non-default transport — for example,
+// radiance's kindling-fronted client routes through a CDN so the
+// request survives endpoint blocking. Whether the response IP equals
+// the user's real IP depends on the supplied transport: CDN-fronting
+// preserves it (the CDN forwards the original connection), while
+// transports that egress from a different host (HTTP proxies, VPNs,
+// SOCKS) will report the egress IP instead. The caller chooses
+// transport, the caller owns the IP semantics.
+//
+// label distinguishes this method from a direct one targeting the same
+// URL in consensus output (e.g. "fronted"). label is ignored when
+// client is nil so Name() doesn't lie about which transport ran.
+func NewHTTPWithClient(url string, format ResponseFormat, client *http.Client, label string) Method {
+	if client == nil {
+		label = ""
+	}
+	return &httpMethod{url: url, format: format, client: client, label: label}
+}
+
 func (h *httpMethod) Name() string {
+	if h.label != "" {
+		return "http[" + h.label + "]:" + h.url
+	}
 	return "http:" + h.url
 }
 
@@ -51,7 +86,11 @@ func (h *httpMethod) Detect(ctx context.Context) (net.IP, *GeoInfo, error) {
 	}
 	req.Header.Set("User-Agent", "publicip/1.0")
 
-	resp, err := httpClient.Do(req)
+	c := h.client
+	if c == nil {
+		c = httpClient
+	}
+	resp, err := c.Do(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("http %s: %w", h.url, err)
 	}
